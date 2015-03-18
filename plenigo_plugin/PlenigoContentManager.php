@@ -36,8 +36,6 @@ namespace plenigo_plugin;
  */
 class PlenigoContentManager {
 
-    private $plenigoSDK = null;
-
     /**
      * Holds the values to be used in the fields callbacks
      */
@@ -157,7 +155,8 @@ class PlenigoContentManager {
         /*
           echo '<script type="application/javascript">'
           . 'var plenigo = plenigo || {};'
-          . 'plenigo.baseURI = "' . PLENIGO_SVC_URL . '";</script>'; */
+          . 'plenigo.baseURI = "' . PLENIGO_SVC_URL . '";';
+          . 'plenigo.baseStaticURI = "' . PLENIGO_SVC_URL . '";</script>'; */
 
         if ($isPaywalled == true && !isset($this->reqCache["listProdId"]) && !isset($this->reqCache["lastCatId"])) {
             plenigo_log_message("PRODUCT OR CATEGORY NOT FOUND!!!", E_USER_WARNING);
@@ -168,14 +167,18 @@ class PlenigoContentManager {
 
         $disableText = '';
         if ($isPaywalled === false || $userBought === true || $hasFreeViews === false || $rType !== self::RENDER_SINGLE) {
-            $disableText = 'data-disable-metered="true"';
+            $disableText = ' data-disable-metered="true" ';
+        }
+        $meteredURLText = '';
+        if (isset($this->options['metered_url']) && filter_var($this->options['metered_url'], FILTER_VALIDATE_URL) !== FALSE) {
+            $meteredURLText = ' data-metered-description-url="' . esc_url(trim($this->options['metered_url'])) . '" ';
         }
 
         $strNoScript = $this->getNoScriptTag();
         echo'<script type="application/javascript" '
         . 'src="' . PLENIGO_JSSDK_URL . '/static_resources/javascript/'
         . $this->options["company_id"] . '/plenigo_sdk.min.js" '
-        . $disableText . '></script>' . $strNoScript;
+        . $disableText . $meteredURLText . '></script>' . $strNoScript;
 
         $this->printGoogleAnalytics();
 
@@ -853,7 +856,7 @@ class PlenigoContentManager {
      * @global WP_Post $post The Wordpress Post Object
      * @return \plenigo\models\ProductBase The Plenigo Product Object
      */
-    public function get_product_checkout() {
+    private function get_product_checkout() {
         global $post;
         $prodID = null;
         $title = null;
