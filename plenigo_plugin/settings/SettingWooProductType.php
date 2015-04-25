@@ -21,27 +21,31 @@
 namespace plenigo_plugin\settings;
 
 /**
- * Setting class for use_login
+ * Setting class for woo_product_type
  *
  * @category WordPressPlugin
  * @package  plenigoPluginSettings
  * @author   Sebastian Dieguez <s.dieguez@plenigo.com>
  * @link     https://plenigo.com
  */
-class SettingUseLogin extends PlenigoWPSetting {
+class SettingWooProductType extends PlenigoWPSetting {
 
     //These should be overriden
-    const SECTION_ID = 'plenigo_login_section';
-    const SETTING_ID = 'use_login';
+    const SECTION_ID = 'plenigo_woo_section';
+    const SETTING_ID = 'woo_product_type';
+
+    // Available Product Types
+    private $prodTypeList = array('EBOOK', 'DIGITALNEWSPAPER', 'DOWNLOAD', 'VIDEO', 'MUSIC');
 
     /**
      * @see PlenigoWPSetting::getSanitizedValue()
      */
     protected function getSanitizedValue($value = null) {
-        if (is_null($value)) {
+        $tempValue = trim(strtoupper($value));
+        if (is_null($value) || empty($tempValue)) {
             return $this->getDefaultValue();
         }
-        return intval(trim($value));
+        return trim(strtoupper($value));
     }
 
     /**
@@ -51,14 +55,14 @@ class SettingUseLogin extends PlenigoWPSetting {
         if (!is_null($current)) {
             return $current;
         }
-        return 0;
+        return '';
     }
 
     /**
      * @see PlenigoWPSetting::getTitle()
      */
     public function getTitle() {
-        return __('Use OAuth Login', parent::PLENIGO_SETTINGS_GROUP);
+        return __('Product Type', parent::PLENIGO_SETTINGS_GROUP);
     }
 
     /**
@@ -66,51 +70,24 @@ class SettingUseLogin extends PlenigoWPSetting {
      */
     public function renderCallback() {
         $currValue = $this->getDefaultValue($this->getStoredValue());
-        $useLoginValue = '';
-        $useNormalValue = '';
-        if (is_null($currValue) || ($currValue === 0 )) {
-            $useLoginValue = '';
-            $useNormalValue = ' checked';
-        } else {
-            $useLoginValue = ' checked';
-            $useNormalValue = '';
+        printf('<select name="%s" id="%s" required size="1">'
+                , self::PLENIGO_SETTINGS_NAME . '[' . static::SETTING_ID . ']'
+                , static::SETTING_ID);
+        foreach ($this->prodTypeList as $prodType) {
+            $selValue = ($currValue == $prodType) ? ' selected' : '';
+            printf('<option value="%s" %s>%s</option>', $prodType, $selValue, ucfirst($prodType));
         }
-
-        echo '<input type="radio" id="' . static::SETTING_ID . '" name="' . self::PLENIGO_SETTINGS_NAME
-        . '[' . static::SETTING_ID . ']" value="1" ' . $useLoginValue . '><label for="' . static::SETTING_ID . '">'
-        . $this->getOnTitle() . '</label><br>'
-        . '<input type="radio" id="not_' . static::SETTING_ID . '" name="' . self::PLENIGO_SETTINGS_NAME
-        . '[' . static::SETTING_ID . ']" value="0" ' . $useNormalValue . '><label for="not_' . static::SETTING_ID . '">'
-        . $this->getOffTitle() . '</label>';
+        echo '</select>';
     }
 
     /**
      * @see PlenigoWPSetting::getValidationForValue()
      */
     public function getValidationForValue($value = null) {
-        if (!is_null($value) && (intval(trim($value)) === 1 || intval(trim($value)) === 0)) {
-            return true;
-        } else {
-            return false;
+        if (!is_null($value) && strlen(trim($value)) > 2) {
+            return in_array(trim(strtoupper($value)), $this->prodTypeList);
         }
-    }
-
-    /**
-     * Returns the title of the ON option
-     * 
-     * @return string
-     */
-    protected function getOnTitle() {
-        return __('Use plenigo Authentication Provider', parent::PLENIGO_SETTINGS_GROUP);
-    }
-
-    /**
-     * Returns the title of the OFF option
-     * 
-     * @return string
-     */
-    protected function getOffTitle() {
-        return __('Regular Wordpress login', parent::PLENIGO_SETTINGS_GROUP);
+        return false;
     }
 
 }

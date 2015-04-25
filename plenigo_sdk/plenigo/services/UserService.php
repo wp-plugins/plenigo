@@ -18,7 +18,6 @@ require_once __DIR__ . '/../models/ErrorCode.php';
 use \plenigo\PlenigoManager;
 use \plenigo\PlenigoException;
 use \plenigo\internal\ApiURLs;
-use \plenigo\internal\utils\RestClient;
 use \plenigo\models\UserData;
 use \plenigo\internal\services\Service;
 use \plenigo\internal\models\Customer;
@@ -55,7 +54,7 @@ class UserService extends Service
      * Cookie expiration time lapse in milliseconds.
      * (24*60*60*100)
      */
-    const TS_EXP_TIME_LAPSE_IN_MILLIS = 8640000; //24hours in millis
+    const TS_EXP_TIME_LAPSE_IN_MILLIS = 86400000; //24hours in millis
 
     /**
      * Gets the user data using the access token provided.
@@ -64,7 +63,6 @@ class UserService extends Service
      * @return UserData the UserData object {@link \plenigo\models\UserData}
      * @throws {@link \plenigo\PlenigoException}\ on response error.
      */
-
     public static function getUserData($accessToken)
     {
         $clazz = get_class();
@@ -76,7 +74,7 @@ class UserService extends Service
             'token' => $accessToken,
         );
 
-        $request = static::getRequest(ApiURLs::USER_PROFILE, $params);
+        $request = static::getRequest(ApiURLs::USER_PROFILE, false, $params);
 
         $userDataRequest = new static($request);
         try {
@@ -120,7 +118,7 @@ class UserService extends Service
     /**
      * Checks if the user can access a product. If there is an error response from the API this will
      * throw am {@link \plenigo\PlenigoException}, in the case of BAD_REQUEST types, the exception will contain
-     * am array of \plenigo\models\ErrorDetail.
+     * an array of \plenigo\models\ErrorDetail.
      *
      * @param string $productId The id of the product to be queried against the user
      * @return TRUE if the user in the cookie has bought the product and the session is not expired, false otherwise
@@ -137,11 +135,6 @@ class UserService extends Service
             PlenigoManager::notice($clazz, self::ERR_MSG_CUSTOMER);
             return false;
         }
-        if (self::hasExpired($customer) === true) {
-            PlenigoManager::notice($clazz, self::ERR_MSG_EXPIRED);
-            return false;
-        }
-
         PlenigoManager::notice($clazz, "customer is good=" . print_r($customer, true));
         $testModeText = (PlenigoManager::get()->isTestMode()) ? 'true' : 'false';
 
@@ -152,7 +145,7 @@ class UserService extends Service
             ApiParams::PRODUCT_ID => $productId,
             ApiParams::TEST_MODE => $testModeText
         );
-        $request = static::getRequest(ApiURLs::USER_PRODUCT_ACCESS, $params);
+        $request = static::getRequest(ApiURLs::USER_PRODUCT_ACCESS, false, $params);
 
         $userDataRequest = new static($request);
         try {
@@ -165,7 +158,7 @@ class UserService extends Service
 
             // Forbidden means that the user has not bought the product.
             if ($errorCode == ErrorCode::CANNOT_ACCESS_PRODUCT) {
-                PlenigoManager::notice($clazz, "Product NOT accesible!");
+                PlenigoManager::notice($clazz, "Product NOT accessible!");
                 return false;
             } else {
                 $clazz = get_class();
@@ -174,7 +167,7 @@ class UserService extends Service
             }
         }
         if (!is_null($response)) {
-            PlenigoManager::notice($clazz, "Product is accesible=" . print_r($response, true));
+            PlenigoManager::notice($clazz, "Product is accessible=" . print_r($response, true));
             return true;
         } else {
             PlenigoManager::notice($clazz, "Product NOT accesible!");
@@ -183,8 +176,8 @@ class UserService extends Service
     }
 
     /**
-     * Calls teh paywall service to check if the entire paywall service is enabled, if disabled, 
-     * all product paywall should be disabled and acces should be granted
+     * Calls the paywall service to check if the entire paywall service is enabled, if disabled, 
+     * all product paywall should be disabled and access should be granted
      * 
      * @return bool true if Paywall is enabled and we need to check for specific product buy information
      */
@@ -194,17 +187,12 @@ class UserService extends Service
             ApiParams::COMPANY_ID => PlenigoManager::get()->getCompanyId(),
             ApiParams::SECRET => PlenigoManager::get()->getSecret()
         );
-        $request = static::getRequest(ApiURLs::PAYWALL_STATE, $params);
+        $request = static::getRequest(ApiURLs::PAYWALL_STATE, false, $params);
 
         $userDataRequest = new static($request);
         try {
             $response = $userDataRequest->execute();
         } catch (PlenigoException $exc) {
-            $errorCode = ErrorCode::getTranslation(ApiURLs::PAYWALL_STATE, $exc->getCode());
-            if (empty($errorCode) || is_null($errorCode)) {
-                $errorCode = $exc->getCode();
-            }
-
             $clazz = get_class();
             PlenigoManager::error($clazz, self::ERR_MSG_PAYWALL, $exc);
             // Default state for the paywall is ENABLED
@@ -230,10 +218,6 @@ class UserService extends Service
         $clazz = get_class();
         if (is_null($customer) || !($customer instanceof \plenigo\internal\models\Customer)) {
             PlenigoManager::error($clazz, self::ERR_MSG_CUSTOMER);
-            return false;
-        }
-        if (self::hasExpired($customer) === true) {
-            PlenigoManager::error($clazz, self::ERR_MSG_EXPIRED);
             return false;
         }
         return true;
@@ -286,31 +270,4 @@ class UserService extends Service
         $timestampInMillis = intval($timestamp);
         return new Customer($customerId, $timestampInMillis);
     }
-
-    /**
-     * Checks if the customer timestamp has expired.
-     *
-     * @param Customer $customer The customer entity to be used in order to examine if the cookie has expired.
-     * @return A TRUE if the cookie has expired.
-     */
-    private static function hasExpired($customer)
-    {
-        if (is_null($customer) || !($customer instanceof \plenigo\internal\models\Customer)) {
-            return true;
-        }
-
-        $curTime = time();
-
-        $timeLapse = $curTime - $customer->getTimestamp();
-
-        if ($timeLapse > 0 && intval($timeLapse) > intval(static::TS_EXP_TIME_LAPSE_IN_MILLIS)) {
-            $clazz = get_class();
-            PlenigoManager::notice($clazz, "Expired Cookie from CustomerID=" . $customer->getCustomerId());
-            $hasExpired = true;
-        } else {
-            $hasExpired = false;
-        }
-        return $hasExpired;
-    }
-
 }

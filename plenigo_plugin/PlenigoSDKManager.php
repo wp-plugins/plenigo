@@ -6,7 +6,7 @@ namespace plenigo_plugin;
  * PlenigoSDKManager
  * 
  * <b>
- * 
+ * This class handles the initialization, main methods and request caches for the Wordpress plugin. Initialization is done by calling the getPlenigoSDK() method once it's configured properly.
  * </b>
  *
  * @category SDK
@@ -32,7 +32,7 @@ class PlenigoSDKManager {
     private $plenigoSDK = null;
 
     /**
-     * Holds values for the SDK requests, so they are mdae just once per request
+     * Holds values for the SDK requests, so they are made just once per request
      */
     private $reqCache = array();
 
@@ -42,10 +42,11 @@ class PlenigoSDKManager {
     private static $instance = null;
 
     /**
-     * Default constructor , called from the main php file
+     * Default constructor, called from the main php file
      */
     private function __construct() {
         $this->options = get_option(self::PLENIGO_SETTINGS_NAME);
+        $this->start_session();
     }
 
     /**
@@ -62,7 +63,7 @@ class PlenigoSDKManager {
     }
 
     /**
-     * Creates or configures the Plenigo SDK to be used in the class for calling the Plenigo Services
+     * Creates or configures the plenigo SDK to be used in the class for calling the plenigo Services
      * 
      * @return \plenigo\PlenigoManager the new or reused instance of the PlenigoManager
      */
@@ -72,9 +73,10 @@ class PlenigoSDKManager {
             if (!isset($this->options['test_mode']) || ($this->options['test_mode'] == 1 )) {
                 $testValue = true;
             }
+            plenigo_log_message('Configuring SDK for company id: ' . $this->options["company_id"], E_USER_NOTICE);
             $this->plenigoSDK = \plenigo\PlenigoManager::configure(
                     $this->options["company_secret"], $this->options["company_id"], $testValue
-                    , PLENIGO_SVC_URL
+                    , PLENIGO_SVC_URL, PLENIGO_OAUTH_SVC_URL
             );
         }
         $this->plenigoSDK->setDebug((PLENIGO_DEBUG === true));
@@ -101,11 +103,12 @@ class PlenigoSDKManager {
     /**
      * Calls the PHP SDK and queries the server for products already bought. Sanitizes the response as a boolean
      *
-     * @param  string  $products the product Id string or an Array of Product Ids
+     * @param  string  $products the product Id string or an array of product ids
      * @return boolean true if the user has bought the product
      */
     public function plenigo_bought($products = null) {
         if (is_null($products)) {
+            plenigo_log_message("Plenigo bought check: false => products null", E_USER_NOTICE);
             return false;
         }
 
@@ -114,27 +117,32 @@ class PlenigoSDKManager {
         }
 
         if (!is_array($products) || count($products) < 1) {
+            plenigo_log_message("Plenigo bought check: false => products array is weird", E_USER_NOTICE);
             return false;
         }
 
         if (!isset($this->reqCache['bought'])) {
+            plenigo_log_message("Bought check array initialized", E_USER_NOTICE);
             $this->reqCache['bought'] = array();
         }
 
         $result = false;
         $sdk = $this->getPlenigoSDK();
         if (is_null($sdk) || !($sdk instanceof \plenigo\PlenigoManager)) {
+            plenigo_log_message("Plenigo bought check: false => SDK failed to start", E_USER_WARNING);
             return false;
         }
         foreach ($products as $currProdID) {
             // cached
             if (isset($this->reqCache['bought'][$currProdID]) && $this->reqCache['bought'][$currProdID] === true) {
+                plenigo_log_message("Plenigo bought cached result true for " . $currProdID, E_USER_NOTICE);
                 $result = true;
             }
             try {
                 $res = \plenigo\services\UserService::hasUserBought($currProdID);
                 //caching
                 $this->reqCache['bought'][$currProdID] = $res;
+                plenigo_log_message("Plenigo bought result true for " . $currProdID . ' - ' . var_export($res, true), E_USER_NOTICE);
 
                 $result = ($res === true) ? true : $result;
             } catch (\Exception $exc) {
@@ -145,6 +153,7 @@ class PlenigoSDKManager {
             }
         }
 
+        plenigo_log_message("Plenigo bought result " . var_export($result, true), E_USER_NOTICE);
         return $result;
     }
 
@@ -179,9 +188,9 @@ class PlenigoSDKManager {
     }
 
     /**
-     * This method checks for the Paywall Enabled flag from the plenigo administration.
+     * This method checks for the paywall enabled flag from the plenigo administration.
      *
-     * @return boolean TRUE if the Paywall is enabled from the server side, false if not
+     * @return boolean TRUE if the paywall is enabled from the server side, false if not
      */
     public function isPayWallEnabled() {
         // cached
@@ -217,7 +226,7 @@ class PlenigoSDKManager {
                 $res = session_id() === '' ? FALSE : TRUE;
             }
         }
-        if ($res === FALSE && !headers_sent()) {
+        if (($res === FALSE && !headers_sent()) || (!isset($_SESSION))) {
             session_start();
         }
     }
