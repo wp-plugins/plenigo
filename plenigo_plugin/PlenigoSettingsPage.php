@@ -26,6 +26,7 @@ require_once __DIR__ . '/settings/SettingCompanyId.php';
 require_once __DIR__ . '/settings/SettingCompanySecret.php';
 require_once __DIR__ . '/settings/SettingCheckMetered.php';
 require_once __DIR__ . '/settings/SettingMeteredURL.php';
+require_once __DIR__ . '/settings/SettingMeteredExemptionTag.php';
 require_once __DIR__ . '/settings/SettingUseNoscript.php';
 require_once __DIR__ . '/settings/SettingNoscriptTitle.php';
 require_once __DIR__ . '/settings/SettingNoscriptMessage.php';
@@ -47,14 +48,15 @@ require_once __DIR__ . '/settings/SettingCurtainButtonBuy.php';
 require_once __DIR__ . '/settings/SettingCurtainButtonLogin.php';
 require_once __DIR__ . '/settings/SettingCurtainButtonCustom.php';
 require_once __DIR__ . '/settings/SettingCurtainButtonCustomURL.php';
-//require_once __DIR__ . '/settings/SettingUseWoo.php';
-//require_once __DIR__ . '/settings/SettingWooOrderTitle.php';
+require_once __DIR__ . '/settings/SettingUseWoo.php';
+require_once __DIR__ . '/settings/SettingWooOrderTitle.php';
+require_once __DIR__ . '/settings/SettingWooProductType.php';
 
 /**
  * PlenigoSettingsPage
  * 
  * <b>
- * This class holds the functions needed to configure the Plenigo Plugin settings page(s).
+ * This class holds the functions needed to configure the plenigo plugin settings page(s).
  * </b>
  *
  * @category WordPressPlugin
@@ -91,6 +93,7 @@ class PlenigoSettingsPage {
         array_push($this->settings, new \plenigo_plugin\settings\SettingCompanySecret());
         array_push($this->settings, new \plenigo_plugin\settings\SettingCheckMetered());
         array_push($this->settings, new \plenigo_plugin\settings\SettingMeteredURL());
+        array_push($this->settings, new \plenigo_plugin\settings\SettingMeteredExemptionTag());
         array_push($this->settings, new \plenigo_plugin\settings\SettingUseNoscript());
         array_push($this->settings, new \plenigo_plugin\settings\SettingNoscriptTitle());
         array_push($this->settings, new \plenigo_plugin\settings\SettingNoscriptMessage());
@@ -112,8 +115,9 @@ class PlenigoSettingsPage {
         array_push($this->settings, new \plenigo_plugin\settings\SettingCurtainButtonLogin());
         array_push($this->settings, new \plenigo_plugin\settings\SettingCurtainButtonCustom());
         array_push($this->settings, new \plenigo_plugin\settings\SettingCurtainButtonCustomURL());
-        //array_push($this->settings, new \plenigo_plugin\settings\SettingUseWoo());
-        //array_push($this->settings, new \plenigo_plugin\settings\SettingWooOrderTitle());
+        array_push($this->settings, new \plenigo_plugin\settings\SettingUseWoo());
+        array_push($this->settings, new \plenigo_plugin\settings\SettingWooOrderTitle());
+        array_push($this->settings, new \plenigo_plugin\settings\SettingWooProductType());
     }
 
     /**
@@ -150,7 +154,7 @@ class PlenigoSettingsPage {
             . '<p>Obtain your <b>Company ID</b> and <b>Private Key</b>, we are almost there...'
             . '</p>'
             . '<p>Ok, last step, <a target="_blank" href="' . PLENIGO_SVC_URL
-            . '/company/product/create">create one or more managed product</a> and copy the Product ID'
+            . '/company/product/create">create one or more managed product</a> and copy the product id'
             . ', type the TAG, paste the product ID into the text field below and click ADD to append it to the tag list.'
             . '</p>'
                 ,
@@ -166,7 +170,7 @@ class PlenigoSettingsPage {
             . __('4 - Enable the plenigo Login clicking <b>Use plenigo Authentication Provider</b> ', self::PLENIGO_SETTINGS_GROUP) . '<br/>'
             . __('5 - Put the plenigo Login Widget in a widget area of the site ', self::PLENIGO_SETTINGS_GROUP)
             . ' <a target="_blank" href="' . admin_url('/widgets.php') . '">' . __('clicking this link', self::PLENIGO_SETTINGS_GROUP) . '</a><br/>'
-            . __('6 - Enjoy Loggin in with plenigo! ', self::PLENIGO_SETTINGS_GROUP)
+            . __('6 - Enjoy logging in with plenigo! ', self::PLENIGO_SETTINGS_GROUP)
             . '</p>'
                 ,
         ));
@@ -201,6 +205,10 @@ class PlenigoSettingsPage {
         echo '<li role="presentation" class="active"><a href="#plenigo_content_section" '
         . 'aria-controls="plenigo_content_section" role="tab" data-toggle="tab">'
         . __('Premium Content', self::PLENIGO_SETTINGS_GROUP) . '</a></li>';
+
+        echo '<li role="presentation" class="active"><a href="#plenigo_metered_section" '
+        . 'aria-controls="plenigo_metered_section" role="tab" data-toggle="tab">'
+        . __('Metered Views', self::PLENIGO_SETTINGS_GROUP) . '</a></li>';
 
         echo '<li role="presentation" class="active"><a href="#plenigo_curtain_section" '
         . 'aria-controls="plenigo_curtain_section" role="tab" data-toggle="tab">'
@@ -258,6 +266,13 @@ class PlenigoSettingsPage {
         );
 
         add_settings_section(
+                'plenigo_metered_section', // ID
+                "", // Title
+                array($this, 'print_section_metered'), // Callback
+                self::PLENIGO_SETTINGS_PAGE // Page
+        );
+
+        add_settings_section(
                 'plenigo_curtain_section', // ID
                 "", // Title
                 array($this, 'print_section_curtain'), // Callback
@@ -298,7 +313,7 @@ class PlenigoSettingsPage {
         $message = '';
         $type = 'updated';
         $new_input = array();
-        if (!is_null($new_input)) {
+        if (!is_null($input)) {
             foreach ($this->settings as $setInstance) {
                 if (isset($input[$setInstance::SETTING_ID])) {
                     $new_input[$setInstance::SETTING_ID] = $setInstance->sanitize($input);
@@ -320,8 +335,8 @@ class PlenigoSettingsPage {
     public function print_section_general() {
         print '<div role="tabpanel" class="tab-pane active" id="plenigo_general">'
                 . '<h3>' . __('General', self::PLENIGO_SETTINGS_GROUP) . '</h3>'
-                . 'These are the basic settings for using plenigo Services. '
-                . 'It allows you to set your Company ID, your encryption secret code, '
+                . 'These are the basic settings for using plenigo services. '
+                . 'It allows you to set your company id, your encryption secret code, '
                 . 'working in the test environment and also disabling '
                 . 'the entire plenigo functionality alltogether.';
     }
@@ -351,6 +366,17 @@ class PlenigoSettingsPage {
     /**
      * Print the Section text
      */
+    public function print_section_metered() {
+        print '</div><div role="tabpanel" class="tab-pane active" id="plenigo_metered_section">'
+            . '<h3>' . __('Metered Views settings', self::PLENIGO_SETTINGS_GROUP) . '</h3>'
+            . 'Metered Views is a way to handle certain amount of free views. '
+            . 'Here you can set a TAG to use as Metered &quot;Exemption&quot; marker, and also you '
+            . 'completely disable metered views.';
+    }
+
+    /**
+     * Print the Section text
+     */
     public function print_section_curtain() {
         print '</div><div role="tabpanel" class="tab-pane active" id="plenigo_curtain_section">'
                 . '<h3>' . __('Curtain Customization', self::PLENIGO_SETTINGS_GROUP) . '</h3>'
@@ -364,10 +390,10 @@ class PlenigoSettingsPage {
     public function print_section_woo() {
         print '</div><div role="tabpanel" class="tab-pane active" id="plenigo_woo_section">'
                 . '<h3>' . __('Woo Commerce', self::PLENIGO_SETTINGS_GROUP) . '</h3>'
-                . 'Here you can control the way Plenigo integrates with '
-            . '<a href="http://www.woothemes.com/woocommerce/" target="_blank">WooCommerce</a>. '
-            . 'It allows you to use the powerful features in <a href="http://www.woothemes.com/woocommerce/" target="_blank">'
-            . 'WooCommerce</a> and use Plenigo as payment method.';
+                . 'Here you can control the way plenigo integrates with '
+                . '<a href="http://www.woothemes.com/woocommerce/" target="_blank">WooCommerce</a>. '
+                . 'It allows you to use the powerful features in <a href="http://www.woothemes.com/woocommerce/" target="_blank">'
+                . 'WooCommerce</a> and use plenigo as payment method.';
     }
 
     /**
@@ -378,11 +404,14 @@ class PlenigoSettingsPage {
     }
 
     /**
-     * Validate Plenigo options and create an error accordingly
+     * Validate plenigo options and create an error accordingly
      * 
      * @param array $inputOptions the options sanitized as it comes from the settings page
      */
     private function plenigo_settings_validation($inputOptions) {
+        if (!is_null($inputOptions) || !is_array($inputOptions)) {
+            return;
+        }
         foreach ($this->settings as $setInstance) {
             if (isset($inputOptions[$setInstance::SETTING_ID])) {
                 $resValid = $setInstance->getValidationForValue($inputOptions[$setInstance::SETTING_ID]);

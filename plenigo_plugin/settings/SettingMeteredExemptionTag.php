@@ -20,54 +20,28 @@
 
 namespace plenigo_plugin\settings;
 
+require_once __DIR__ . '/SettingPreventTag.php';
+
 /**
- * Setting class for override_profiles
+ * Setting class for plenigo_metered_exempt_tag
  *
  * @category WordPressPlugin
  * @package  plenigoPluginSettings
  * @author   Sebastian Dieguez <s.dieguez@plenigo.com>
  * @link     https://plenigo.com
  */
-class SettingOverrideProfiles extends SettingCheckMetered
+class SettingMeteredExemptionTag extends SettingPreventTag
 {
 
     //These should be overriden
-    const SECTION_ID = 'plenigo_login_section';
-    const SETTING_ID = 'override_profiles';
-
-    /**
-     * @see PlenigoWPSetting::getDefaultValue()
-     */
-    public function getDefaultValue($current = null)
-    {
-        if (!is_null($current)) {
-            return $current;
-        }
-        return 0;
-    }
+    const SECTION_ID = 'plenigo_metered_section';
+    const SETTING_ID = 'plenigo_metered_exempt_tag';
 
     /**
      * @see PlenigoWPSetting::getTitle()
      */
     public function getTitle()
     {
-        return __('Override WP Profile data', parent::PLENIGO_SETTINGS_GROUP);
+        return __('Metered exemption tag', parent::PLENIGO_SETTINGS_GROUP);
     }
-
-    /**
-     * Returns the applicable labels for the given options
-     * 
-     * @param int $option the value for the option
-     * @return string the translated label
-     */
-    protected function getOptionLabel($option)
-    {
-        if ($option === 1) {
-            return __('Override Wordpress profile data with the plenigo data', parent::PLENIGO_SETTINGS_GROUP);
-        }
-        if ($option === 0) {
-            return __('Allow Wordpress users to modify their data', parent::PLENIGO_SETTINGS_GROUP);
-        }
-    }
-
 }
